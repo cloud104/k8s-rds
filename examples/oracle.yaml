@@ -1,0 +1,25 @@
+apiVersion: k8s.io/v1
+kind: Database
+metadata:
+  # Will be the name of the database and the service
+  name: c12345-test
+spec:
+  availabilityZone: us-east-2a
+  backupRetentionPeriod: 7
+  class: db.t2.small
+  copyTagsToSnapshot: true
+  dbname: PROTHDB
+  engine: oracle-se2
+  parameterGroup: taf-oracle-se2-12-1
+  size: 10
+  snapshotIdentifier: arn:aws:rds:us-east-2:911270218041:snapshot:database-matriz-v26
+  storageType: gp2
+  subnetGroupName: private
+  username:
+  password:
+    key: password
+    name: c12345-test
+  tags:
+    clusterId: "cluster-bc9a674a"
+    externalIdentifier: "TEST"
+    topologyId: "1"

@@ -50,23 +50,21 @@ apiVersion: k8s.io/v1
 kind: Database
 metadata:
   name: pgsql
-  namespace: default
 spec:
+  backupRetentionPeriod: 10 # days to keep backup, 0 means diable
   class: db.t2.medium # type of the db instance
-  engine: postgres # what engine to use postgres, mysql, aurora-postgresql etc.
   dbname: pgsql # name of the initial created database
+  encrypted: true # should the database be encrypted
+  engine: postgres # what engine to use postgres, mysql, aurora-postgresql etc.
+  iops: 1000 # number of iops
+  multiaz: true # multi AZ support
   name: pgsql # name of the database at the provider
+  size: 10 # size in BG
+  storageType: gp2 # type of the underlying storage
+  username: postgres # Database username
   password: # link to database secret
     key: mykey # the key in the secret
     name: mysecret # the name of the secret
-  username: postgres # Database username
-  size: 10 # size in BG
-  backupretentionperiod: 10 # days to keep backup, 0 means diable
-  encrypted: true # should the database be encrypted
-  iops: 1000 # number of iops
-  multiaz: true # multi AZ support
-  storagetype: gp2 # type of the underlying storage
- 
 ```
 
 After the deploy is done you should be able to see your database via `kubectl get databases`
@@ -85,10 +83,20 @@ And on the AWS RDS page
 # TODO
 
 - [X] Basic RDS support
+- [] Cluster support
+- [] Google Cloud SQL for PostgreSQL support
+- [] Local PostgreSQL support
+- [] Transform rds creation into a configurable cli
+- [] Azure support
+- [] Make it read from a VERSION file and log
+- [] Tests
 
-- [ ] Cluster support
+## TEST
 
-- [ ] Google Cloud SQL for PostgreSQL support
-
-- [ ] Local PostgreSQL support
-
+- [] Parallel running
+- [] Pass parameter group
+- [] Get latest snapshot when restoring
+  - [] On delete check if snapshot was done correctly
+- [] Delete check snapshot
+- [] Create/Restore postgres
+- [] Create/Restore oracle
