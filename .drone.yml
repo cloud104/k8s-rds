@@ -45,7 +45,6 @@ pipeline:
 
   chart:
     image: cloud104/drone-chartmuseum
-    pull: true
     group: deploy
     chart_path: hack/helm
     secrets: [ plugin_repo_username, plugin_repo_password, plugin_repo_url ]
