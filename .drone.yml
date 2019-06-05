@@ -1,29 +1,24 @@
 workspace:
   base: /go
-  path: src/github.com/cloud104/k8s-rds
+  path: src/github.com/cloud104/kube-db
 
 pipeline:
-  deps:
-    image: instrumentisto/dep:alpine
-    commands:
-      - dep ensure -vendor-only
+  # test:
+  #   image: golang:alpine
+  #   group: build
+  #   commands:
+  #     - CGO_ENABLED=0 GOOS=linux GO111MODULE=on go test ./...
 
-  test:
-    image: golang:alpine
-    group: build
-    commands:
-      - CGO_ENABLED=0 GOOS=linux go test ./...
-
-  build:
-    image: instrumentisto/dep:alpine
-    group: build
-    commands:
-      - GOOS=linux CGO_ENABLED=0 go build
+  # build:
+  #   image: golang
+  #   group: build
+  #   commands:
+  #     - GOOS=linux CGO_ENABLED=0 GO111MODULE=on go build
 
   publish-feature:
     image: plugins/gcr
     group: deploy
-    repo: gcr.io/totvscloud104/k8s-rds
+    repo: gcr.io/totvscloud104/kube-db
     secrets: [ gcr_json_key ]
     tags:
       - "latest"
@@ -41,7 +36,7 @@ pipeline:
 
   publish:
     image: plugins/gcr
-    repo: gcr.io/totvscloud104/k8s-rds
+    repo: gcr.io/totvscloud104/kube-db
     secrets: [ gcr_json_key ]
     auto_tag: true
     group: deploy
@@ -50,10 +45,10 @@ pipeline:
 
   chart:
     image: cloud104/drone-chartmuseum
+    pull: true
     group: deploy
-    chart_path: helm
-    log_level: debug
-    secrets: [ repo_username, repo_password, repo_url ]
+    chart_path: hack/helm
+    secrets: [ plugin_repo_username, plugin_repo_password, plugin_repo_url ]
 
   slack:
     image: plugins/slack

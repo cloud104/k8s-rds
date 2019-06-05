@@ -1,0 +1,7 @@
+apiVersion: databases.tks.sh/v1
+kind: Rds
+metadata:
+  name: rds-sample
+spec:
+  # Add fields here
+  foo: bar

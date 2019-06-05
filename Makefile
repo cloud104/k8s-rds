@@ -1,32 +1,72 @@
-include ./helm/secrets/values.mk
 
-NAME:=k8s-rds
-EXAMPLE_NAMESPACE:=c12345-test
-EXAMPLE_NAME=c12345-test
+# Image URL to use all building/pushing image targets
+IMG ?= gcr.io/totvscloud104/kube-db:latest
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= "crd:trivialVersions=true"
 
-run:
-	go run main.go
+all: manager
 
-debug-publish:
-	docker build -t gcr.io/totvscloud104/k8s-rds:latest .
-	docker push gcr.io/totvscloud104/k8s-rds:latest
-	k -n ${NAME} get pod -l name=${NAME}
-	k -n ${NAME} delete pod -l name=${NAME}
+# Run tests
+test: generate fmt vet manifests
+	go test ./api/... ./controllers/... ./pkg/... -coverprofile cover.out
 
-logs:
-	k -n ${NAME} logs $(shell k -n ${NAME} get pod -l name=${NAME} -o jsonpath='{.items[0].metadata.name}')
+# Build manager binary
+manager: generate fmt vet
+	go build -o bin/manager main.go
 
-# Example
-example-oracle:
-	kubectl -n ${EXAMPLE_NAMESPACE} apply -f ./examples/oracle.yaml
+# Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate fmt vet
+	go run ./main.go
 
-# example-postgres:
-# 	kubectl -n ${EXAMPLE_NAMESPACE} apply -f ./examples/postgres.yaml
+# Install CRDs into a cluster
+install: manifests
+	kubectl apply -f config/crd/bases
 
-example-get:
-	k -n ${EXAMPLE_NAMESPACE} get database
+# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: manifests
+	kubectl apply -f config/crd/bases
+	kustomize build config/default | kubectl apply -f -
 
-example-delete:
-	kubectl -n ${EXAMPLE_NAMESPACE} delete database ${EXAMPLE_NAME}
+# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+delete:
+	kubectl delete -f config/crd/bases
+	kustomize build config/default | kubectl delete -f -
 
-.PHONY: run example-oracle example-oracle-delete example-postgres example-postgres-delete logs
+kustomize:
+	@kustomize build config/default
+
+# Generate manifests e.g. CRD, RBAC etc.
+manifests: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./api/...;./controllers/...;./pkg/..." output:crd:artifacts:config=config/crd/bases
+
+# Run go fmt against code
+fmt:
+	go fmt ./...
+
+# Run go vet against code
+vet:
+	go vet ./...
+
+# Generate code
+generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./api/...
+
+# Build the docker image
+docker-build: test
+	docker build . -t ${IMG}
+	@echo "updating kustomize image patch file for manager resource"
+	sed -i'' -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
+
+# Push the docker image
+docker-push:
+	docker push ${IMG}
+
+# find or download controller-gen
+# download controller-gen if necessary
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.0-beta.1
+CONTROLLER_GEN=$(shell go env GOPATH)/bin/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
+endif

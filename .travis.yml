@@ -1,15 +1,15 @@
 dist: trusty
 sudo: required
 language: go
-go: "1.10"
+go: "1.12"
 services:
   - docker
 install:
-  - GOOS=linux CGO_ENABLED=0 go build
+  - GOOS=linux CGO_ENABLED=0 GO111MODULE=on go build
   - go test
 
 after_success:
-  - scripts/deploy.sh
+  - hack/scripts/deploy.sh
 
 notifications:
   email: false

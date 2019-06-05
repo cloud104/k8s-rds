@@ -1,22 +1,24 @@
-# Go envs
-FROM golang:alpine as dev
-RUN apk add --update --no-cache git curl
-RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-ARG PACKAGE
-ENV APP_HOME $GOPATH/src/github.com/cloud104/k8s-rds/$PACKAGE
-WORKDIR $APP_HOME
-COPY Gopkg.toml Gopkg.lock ./
-RUN dep ensure -vendor-only
-VOLUME ["$APP_HOME"]
+# Build the manager binary
+FROM golang:alpine as builder
 
-# Builder
-FROM dev as builder
-COPY . .
-ARG PACKAGE
-RUN CGO_ENABLED=0 GOOS=linux go build -o /entrypoint
+RUN apk add --no-cache -u git
+WORKDIR /workspace
+# Copy the go source
+COPY main.go main.go
+COPY api/ api/
+COPY controllers/ controllers/
+COPY pkg/ pkg/
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
 
-# Prod
-FROM drone/ca-certs
-COPY --from=builder /entrypoint /usr/local/bin/entrypoint
-EXPOSE 80
-ENTRYPOINT ["entrypoint"]
+
+# Build
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
+
+# Use distroless as minimal base image to package the manager binary
+# Refer to https://github.com/GoogleContainerTools/distroless for more details
+FROM gcr.io/distroless/static:latest
+WORKDIR /
+COPY --from=builder /workspace/manager .
+ENTRYPOINT ["/manager"]

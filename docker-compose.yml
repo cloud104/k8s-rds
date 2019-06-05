@@ -1,12 +1,12 @@
 version: "3.7"
 services:
   test:
-    image: instrumentisto/dep:alpine
+    image: golang
     entrypoint: ""
-    working_dir: /go/src/github.com/cloud104/k8s-rds
+    working_dir: /go/src/github.com/cloud104/kube-db
     command: go test
     volumes:
-      - .:/go/src/github.com/cloud104/k8s-rds
+      - .:/go/src/github.com/cloud104/kube-db
   vault:
     image: vault
     ports:

@@ -1,0 +1,10 @@
+secrets:
+  aws_access_key_id: "@TODO"
+  aws_secret_access_key: "@TODO"
+
+image:
+  registry: gcr.io/totvscloud104
+  repository: kube-db
+  tag: 2.0.0
+  pullPolicy: Always
+  pullSecret: "@TODO"

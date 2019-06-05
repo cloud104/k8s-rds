@@ -1,0 +1,3 @@
+version: "2.0.0"
+domain: tks.sh
+repo: github.com/cloud104/kube-db

@@ -1,7 +1,7 @@
-# k8s-rds
+# K8S Databases
 
-[![Build Status](https://travis-ci.org/cloud104/k8s-rds.svg?branch=master)](https://travis-ci.org/sorenmat/k8s-rds)
-[![Go Report Card](https://goreportcard.com/badge/github.com/cloud104/k8s-rds)](https://goreportcard.com/report/github.com/cloud104/k8s-rds)
+[![Build Status](https://travis-ci.org/cloud104/kube-db.svg?branch=master)](https://travis-ci.org/sorenmat/kube-db)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cloud104/kube-db)](https://goreportcard.com/report/github.com/cloud104/kube-db)
 
 A Custom Resource Definition for provisioning AWS RDS databases.
 
@@ -15,21 +15,21 @@ The codes will search for the first node, and take the subnets from that node. A
 
 ## Building
 
-`CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o k8s-rds .`
+`CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o kube-db .`
 
 ## Installing
 
-You can start the the controller by applying `kubectl apply -f deploy/deployment.yaml`
-
-### RBAC deployment
-
-To create ClusterRole and bindings, apply the following instead:
-
-```shell
-kubectl apply -f deploy/operator-cluster-role.yaml
-kubectl apply -f deploy/operator-service-account.yaml
-kubectl apply -f deploy/operator-cluster-role-binding.yaml
-kubectl apply -f deploy/deployment-rbac.yaml
+You can start the the controller with helm
+```
+helm upgrade kube-db ./hack/helm \
+                -f ./hack/helm/values.yaml \
+                --namespace=kube-db-system \
+                --set image.tag="latest" \
+                --set secrets.aws_access_key_id="@TODO" \
+                --set secrets.aws_secret_access_key="@TODO" \
+                --set image.pullSecret="@TODO" \
+                --debug \
+                --install
 ```
 
 ## Deploying
@@ -46,8 +46,8 @@ type: Opaque
 data:
   mykey: cGFzc3dvcmRvcnNvbWV0aGluZw==
 ---
-apiVersion: k8s.io/v1
-kind: Database
+apiVersion: databases.tks.sh/v1
+kind: Rds
 metadata:
   name: pgsql
 spec:
@@ -67,7 +67,7 @@ spec:
     name: mysecret # the name of the secret
 ```
 
-After the deploy is done you should be able to see your database via `kubectl get databases`
+After the deploy is done you should be able to see your database via `kubectl get rds`
 
 ```shell
 NAME         AGE
@@ -79,6 +79,11 @@ And on the AWS RDS page
 ![subnets](docs/subnet.png "DB instance subnets")
 
 ![instances](docs/instances.png "DB instance")
+
+## Kubebuilder init
+
+- env GOPATH=$HOME/Workspace  GO111MODULE=on kubebuilder init --domain tks.sh
+- env GOPATH=$HOME/Workspace GO111MODULE=on kubebuilder create api --group databases --version v1 --kind Rds --controller=true --resource=true
 
 # TODO
 
@@ -100,3 +105,17 @@ And on the AWS RDS page
 - [] Delete check snapshot
 - [] Create/Restore postgres
 - [] Create/Restore oracle
+
+## References
+
+- https://github.com/cloud104/kube-db
+- https://github.com/cloud104/tks-uptimerobot-controller
+- https://github.com/cloud104/tks-controller
+- https://itnext.io/how-to-create-a-kubernetes-custom-controller-using-client-go-f36a7a7536cc
+- https://github.com/krallistic/kafka-operator
+- https://github.com/cloud104/farwell-controller
+- https://github.com/hossainemruz/k8s-initializer-finalizer-practice
+- https://book.kubebuilder.io/quick-start.html
+- https://github.com/kubernetes-sigs/cluster-api
+- https://blog.golang.org/using-go-modules
+- https://github.com/morvencao/kubecronjob
