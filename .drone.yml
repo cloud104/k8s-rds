@@ -9,11 +9,11 @@ pipeline:
   #   commands:
   #     - CGO_ENABLED=0 GOOS=linux GO111MODULE=on go test ./...
 
-  # build:
-  #   image: golang
-  #   group: build
-  #   commands:
-  #     - GOOS=linux CGO_ENABLED=0 GO111MODULE=on go build
+  build:
+    image: golang
+    group: build
+    commands:
+      - GOOS=linux CGO_ENABLED=0 GO111MODULE=on go build
 
   publish-feature:
     image: plugins/gcr
