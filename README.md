@@ -119,3 +119,10 @@ And on the AWS RDS page
 - https://github.com/kubernetes-sigs/cluster-api
 - https://blog.golang.org/using-go-modules
 - https://github.com/morvencao/kubecronjob
+
+### Google reference
+
+- Create database docs: https://godoc.org/cloud.google.com/go
+- Go sdk: https://github.com/googleapis/google-cloud-go
+- Go sdk godocs: https://godoc.org/cloud.google.com/go
+- Cli docs: https://cloud.google.com/sdk/gcloud/reference/sql/databases/create

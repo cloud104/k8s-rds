@@ -183,7 +183,7 @@ func getSubnets(log logr.Logger, svc *ec2.Client, public bool, kubectl *kubernet
 	}
 	log.Info("Found the follwing subnets")
 	for _, v := range result {
-		log.Info("Found subnet", v)
+		log.Info("Found subnet", "subnet", v)
 	}
 	return result, nil
 }
