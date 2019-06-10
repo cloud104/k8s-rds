@@ -10,12 +10,13 @@ spec:
   copyTagsToSnapshot: true
   dbname: PROTHDB
   engine: oracle-se2
+  engineVersion: "10.5"
   parameterGroup: taf-oracle-se2-12-1
   size: 10
   snapshotIdentifier: arn:aws:rds:us-east-2:911270218041:snapshot:database-matriz-v26
   storageType: gp2
   subnetGroupName: private
-  username:
+  username: protheus
   password:
     key: password
     name: c12345-test
