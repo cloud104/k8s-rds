@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/pkg/errors"
 )
 
@@ -164,6 +165,12 @@ func (a *AWS) DeleteDatabase(db *databasesv1.Rds) error {
 	})
 	_, err := res.Send(ctx)
 	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			if awsErr.Code() == "DBInstanceNotFound" {
+				return nil
+			}
+		}
+
 		log.Println(errors.Wrap(err, fmt.Sprintf("unable to delete database %v", dbName)))
 		return err
 	}

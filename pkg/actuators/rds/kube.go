@@ -2,10 +2,10 @@ package rds
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -53,7 +53,11 @@ func (k *Kube) DeleteService(namespace string, dbname string) error {
 	serviceInterface := k.Client.CoreV1().Services(namespace)
 	err := serviceInterface.Delete(dbname, &metav1.DeleteOptions{})
 	if err != nil {
-		log.Println(err)
+		// @TODO: Refactor, cuz ugly as fuck
+		code := metav1.Status(err.(k8s_errors.APIStatus).Status()).Code
+		if code == 404 {
+			return nil
+		}
 		return errors.Wrap(err, fmt.Sprintf("delete of service %v failed in namespace %v", dbname, namespace))
 	}
 	return nil

@@ -3,9 +3,12 @@ module github.com/cloud104/kube-db
 go 1.12
 
 require (
+	github.com/aws/aws-sdk-go v1.19.47
 	github.com/aws/aws-sdk-go-v2 v0.9.0
 	github.com/cloud104/k8s-rds v1.0.0-master
 	github.com/go-logr/logr v0.1.0
+	github.com/k0kubun/pp v3.0.1+incompatible
+	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/onsi/ginkgo v1.6.0
 	github.com/onsi/gomega v1.4.2
 	github.com/pkg/errors v0.8.1
