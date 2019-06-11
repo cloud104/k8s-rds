@@ -19,6 +19,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"github.com/k0kubun/pp"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	controllerError "sigs.k8s.io/cluster-api/pkg/controller/error"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -46,6 +47,10 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("rds", req.NamespacedName)
 	instance := databasesv1.Rds{}
+
+	// panic("ONO")
+	// .Actuator.
+	// &instance, r, ctx, req.NamespacedName
 
 	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
 		log.Error(err, "Unable to fetch rds")
@@ -78,7 +83,9 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 
 		log.Info("reconciling rds object triggers delete", "name", instance.Name)
-		if err := r.Actuator.Delete(&instance, r, ctx, req.NamespacedName); err != nil {
+		status, err := r.Actuator.Delete(&instance, r, ctx, req.NamespacedName)
+		pp.Println(status)
+		if err != nil {
 			log.Error(err, "Error deleting rds object", "name", instance.Name)
 			return ctrl.Result{}, err
 		}
@@ -93,7 +100,9 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	log.Info("reconciling rds object triggers idempotent reconcile", "name", instance.Name)
-	if err := r.Actuator.Reconcile(&instance, r, ctx, req.NamespacedName); err != nil {
+	status, err := r.Actuator.Reconcile(&instance, r, ctx, req.NamespacedName)
+	pp.Println(status)
+	if err != nil {
 		if requeueErr, ok := err.(*controllerError.RequeueAfterError); ok {
 			log.Info("Actuator returned requeue after error", "requeueErr", requeueErr)
 			return ctrl.Result{Requeue: true, RequeueAfter: requeueErr.RequeueAfter}, nil
