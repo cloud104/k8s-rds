@@ -122,7 +122,8 @@ And on the AWS RDS page
 
 ### Google reference
 
-- Create database docs: https://godoc.org/cloud.google.com/go
-- Go sdk: https://github.com/googleapis/google-cloud-go
+- Create database docs: https://cloud.google.com/sdk/gcloud/reference/sql/databases/create
+- Create database tutorial: https://cloud.google.com/sql/docs/mysql/create-manage-databases
+- Go sdk code: https://github.com/googleapis/google-cloud-go
 - Go sdk godocs: https://godoc.org/cloud.google.com/go
 - Cli docs: https://cloud.google.com/sdk/gcloud/reference/sql/databases/create
