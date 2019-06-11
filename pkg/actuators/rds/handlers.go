@@ -17,8 +17,6 @@ func (a *Actuator) handleCreateDatabase(db *databasesv1.Rds) (status databasesv1
 		return databasesv1.NewStatus("Database Created", "CREATED"), nil
 	}
 
-	pp.Println(db.Status)
-
 	// If status WAITING:
 	// Check if done, if done:
 	// Create endpoint, then:

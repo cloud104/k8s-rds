@@ -19,7 +19,6 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/k0kubun/pp"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	controllerError "sigs.k8s.io/cluster-api/pkg/controller/error"
@@ -118,8 +117,6 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		log.Error(err, "Error reconciling rds object")
 		return ctrl.Result{}, err
 	}
-
-	pp.Println("Returning", status)
 
 	// Update Status
 	if err := r.updateStatus(&instance, status, context.Background(), req.NamespacedName); err != nil {
