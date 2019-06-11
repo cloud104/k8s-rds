@@ -13,5 +13,5 @@ type Actuator interface {
 	Reconcile(*databasesv1.Rds, *RdsReconciler, context.Context, types.NamespacedName) (databasesv1.RdsStatus, error)
 
 	//
-	Delete(*databasesv1.Rds, *RdsReconciler, context.Context, types.NamespacedName) error
+	Delete(*databasesv1.Rds, *RdsReconciler, context.Context, types.NamespacedName) (databasesv1.RdsStatus, error)
 }

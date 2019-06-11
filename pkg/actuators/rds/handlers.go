@@ -17,6 +17,8 @@ func (a *Actuator) handleCreateDatabase(db *databasesv1.Rds) (status databasesv1
 		return databasesv1.NewStatus("Database Created", "CREATED"), nil
 	}
 
+	pp.Println(db.Status)
+
 	// If status WAITING:
 	// Check if done, if done:
 	// Create endpoint, then:
@@ -25,7 +27,7 @@ func (a *Actuator) handleCreateDatabase(db *databasesv1.Rds) (status databasesv1
 		log.Info("Getting endpoint")
 		hostname, err := a.k8srds.GetEndpoint(db)
 		if err != nil {
-			return databasesv1.NewStatus("Failing Geting endpoint", "ERROR"), err
+			return databasesv1.NewStatus("Waiting for endpoint to be available", "WAITING"), err
 		}
 
 		log.Info("Creating service", "name", db.Name, "hostname", hostname, "namespace", db.Namespace)
@@ -50,6 +52,7 @@ func (a *Actuator) handleCreateDatabase(db *databasesv1.Rds) (status databasesv1
 		return databasesv1.NewStatus("Failing Geting Secret", "ERROR"), err
 	}
 
+	log.Info("Create")
 	err = a.k8srds.CreateDatabase(db, pw)
 	if err != nil {
 		pp.Println(err)

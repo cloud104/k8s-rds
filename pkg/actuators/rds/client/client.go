@@ -255,15 +255,19 @@ func (a *AWS) ensureSubnets(db *databasesv1.Rds) (string, error) {
 }
 
 func getEndpoint(dbName *string, svc *rds.Client) (string, error) {
-	ctx := context.Background()
-	k := &rds.DescribeDBInstancesInput{DBInstanceIdentifier: dbName}
-	res := svc.DescribeDBInstancesRequest(k)
-	instance, err := res.Send(ctx)
-	// pp.Println(instance.DBInstances)
+	instance, err := svc.
+		DescribeDBInstancesRequest(&rds.DescribeDBInstancesInput{DBInstanceIdentifier: dbName}).
+		Send(context.Background())
+
 	if err != nil || len(instance.DBInstances) == 0 {
 		return "", fmt.Errorf("wasn't able to describe the db instance with id %v", dbName)
 	}
+
 	rdsdb := instance.DBInstances[0]
+
+	if rdsdb.Endpoint == nil {
+		return "", fmt.Errorf("endpoint is not available yet")
+	}
 
 	dbHostname := *rdsdb.Endpoint.Address
 	return dbHostname, nil

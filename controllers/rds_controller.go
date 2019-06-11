@@ -83,10 +83,15 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		// Call actuator delete
 		log.Info("reconciling rds object triggers delete")
-		err := r.Actuator.Delete(&instance, r, ctx, req.NamespacedName)
+		status, err := r.Actuator.Delete(&instance, r, ctx, req.NamespacedName)
 		if err != nil {
 			log.Error(err, "Error deleting rds object")
 			return ctrl.Result{}, err
+		}
+
+		if status.State != "DELETED" {
+			log.Info("Deleting, requeueing")
+			return ctrl.Result{Requeue: true, RequeueAfter: 100}, nil
 		}
 
 		// Remove finalizer on successful deletion.

@@ -25,9 +25,11 @@ const RdsFinalizer = "rds.k8s.io"
 
 // RdsStatus
 var RdsStausList = map[string]string{
-	"CREATED": "CREATED",
-	"ERROR":   "ERROR",
-	"WAITING": "WAITING",
+	"CREATED":  "CREATED",
+	"DELETING": "DELETING",
+	"DELETED":  "DELETED",
+	"ERROR":    "ERROR",
+	"WAITING":  "WAITING",
 }
 
 // RdsSpec defines the desired state of Rds
