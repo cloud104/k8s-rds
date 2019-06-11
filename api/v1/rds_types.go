@@ -23,6 +23,13 @@ import (
 // RdsFinalizer ...
 const RdsFinalizer = "rds.k8s.io"
 
+// RdsStatus
+var RdsStausList = map[string]string{
+	"CREATED": "CREATED",
+	"ERROR":   "ERROR",
+	"WAITING": "WAITING",
+}
+
 // RdsSpec defines the desired state of Rds
 type RdsSpec struct {
 	AvailabilityZone      string               `json:"availabilityZone"`
@@ -75,4 +82,15 @@ type RdsList struct {
 
 func init() {
 	SchemeBuilder.Register(&Rds{}, &RdsList{})
+}
+
+func (r *Rds) Is(state string) bool {
+	return r.Status.State == state
+}
+
+func NewStatus(message string, state string) RdsStatus {
+	return RdsStatus{
+		Message: message,
+		State:   RdsStausList[state],
+	}
 }

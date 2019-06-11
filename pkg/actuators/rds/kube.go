@@ -3,6 +3,7 @@ package rds
 import (
 	"fmt"
 
+	"github.com/k0kubun/pp"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,24 +22,20 @@ func (k *Kube) createServiceObj(s *v1.Service, namespace string, hostname string
 }
 
 // CreateService Creates or updates a service in Kubernetes with the new information
-func (k *Kube) CreateService(namespace string, hostname string, internalname string) error {
-
+func (k *Kube) ReconcileService(namespace string, hostname string, internalName string) (err error) {
 	// create a service in kubernetes that points to the AWS RDS instance
 	serviceInterface := k.Client.CoreV1().Services(namespace)
 
-	s, sErr := serviceInterface.Get(hostname, metav1.GetOptions{})
+	s, err := serviceInterface.Get(internalName, metav1.GetOptions{})
 
-	create := false
-	if sErr != nil {
-		s = &v1.Service{}
-		create = true
-	}
-	s = k.createServiceObj(s, namespace, hostname, internalname)
-	var err error
-	if create {
-		_, err = serviceInterface.Create(s)
-	} else {
+	s = k.createServiceObj(s, namespace, hostname, internalName)
+
+	if err == nil {
 		_, err = serviceInterface.Update(s)
+	}
+
+	if err != nil && metav1.Status(err.(k8s_errors.APIStatus).Status()).Code == 404 {
+		_, err = serviceInterface.Create(s)
 	}
 
 	return err
@@ -65,4 +62,10 @@ func (k *Kube) GetSecret(namespace string, name string, key string) (string, err
 	}
 	password := secret.Data[key]
 	return string(password), nil
+}
+
+func (k *Kube) hasService(namespace string, hostname string, internalname string) bool {
+	serviceInterface := k.Client.CoreV1().Services(namespace)
+	pp.Println(serviceInterface)
+	return true
 }

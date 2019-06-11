@@ -24,12 +24,12 @@ type AWS struct {
 }
 
 // CreateDatabase ...
-func (a *AWS) CreateDatabase(db *databasesv1.Rds, password string) (string, error) {
+func (a *AWS) CreateDatabase(db *databasesv1.Rds, password string) error {
 	ctx := context.Background()
 	log.Println("Trying to find the correct subnets")
 	subnetName, err := a.ensureSubnets(db)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	input := convertSpecToInputCreate(db, subnetName, a.SecurityGroups, password)
@@ -45,48 +45,22 @@ func (a *AWS) CreateDatabase(db *databasesv1.Rds, password string) (string, erro
 		res := a.RDS.CreateDBInstanceRequest(input)
 		_, err = res.Send(ctx)
 		if err != nil {
-			return "", errors.Wrap(err, "CreateDBInstance")
-		}
-
-		log.Printf("Waiting for db instance %v to become available\n", input.DBInstanceIdentifier)
-		time.Sleep(5 * time.Second)
-		err = a.RDS.WaitUntilDBInstanceAvailable(ctx, k)
-		if err != nil {
-			return "", errors.Wrap(err, fmt.Sprintf("something went wrong in WaitUntilDBInstanceAvailable for db instance %v", input.DBInstanceIdentifier))
-		}
-
-		log.Printf("Reboot instance after creation %v to apply params\n", *input.DBInstanceIdentifier)
-		r := &rds.RebootDBInstanceInput{DBInstanceIdentifier: input.DBInstanceIdentifier}
-		_, err = a.RDS.RebootDBInstanceRequest(r).Send(ctx)
-		if err != nil {
-			return "", errors.Wrap(err, fmt.Sprintf("something went wrong in RebootDBInstanceRequest for db instance %v", input.DBInstanceIdentifier))
+			return errors.Wrap(err, "CreateDBInstance")
 		}
 	} else if err != nil {
-		return "", errors.Wrap(err, fmt.Sprintf("wasn't able to describe the db instance with id %v", input.DBInstanceIdentifier))
+		return errors.Wrap(err, fmt.Sprintf("wasn't able to describe the db instance with id %v", input.DBInstanceIdentifier))
 	}
 
-	log.Printf("Waiting for db instance %v to become available after create\n", *input.DBInstanceIdentifier)
-	time.Sleep(5 * time.Second)
-	err = a.RDS.WaitUntilDBInstanceAvailable(ctx, k)
-	if err != nil {
-		return "", errors.Wrap(err, fmt.Sprintf("something went wrong in WaitUntilDBInstanceAvailable for db instance %v", input.DBInstanceIdentifier))
-	}
-
-	// Get the newly created database so we can get the endpoint
-	dbHostname, err := getEndpoint(input.DBInstanceIdentifier, a.RDS)
-	if err != nil {
-		return "", err
-	}
-	return dbHostname, nil
+	return nil
 }
 
 // RestoreDatabase ...
-func (a *AWS) RestoreDatabase(db *databasesv1.Rds) (string, error) {
+func (a *AWS) RestoreDatabase(db *databasesv1.Rds) error {
 	ctx := context.Background()
 	log.Println("Trying to find the correct subnets")
 	subnetName, err := a.ensureSubnets(db)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	var securityGroups []string
@@ -114,39 +88,87 @@ func (a *AWS) RestoreDatabase(db *databasesv1.Rds) (string, error) {
 		res := a.RDS.RestoreDBInstanceFromDBSnapshotRequest(input)
 		_, err = res.Send(ctx)
 		if err != nil {
-			return "", errors.Wrap(err, "RestoreDBInstance")
+			return errors.Wrap(err, "RestoreDBInstance")
 		}
 
-		log.Printf("Waiting for db instance %v to become available after restoring\n", *input.DBInstanceIdentifier)
-		time.Sleep(5 * time.Second)
-		err = a.RDS.WaitUntilDBInstanceAvailable(ctx, k)
-		if err != nil {
-			return "", errors.Wrap(err, fmt.Sprintf("something went wrong in WaitUntilDBInstanceAvailable for db instance %v", input.DBInstanceIdentifier))
-		}
-
-		log.Printf("Reboot instance after restoring %v to apply params\n", *input.DBInstanceIdentifier)
-		r := &rds.RebootDBInstanceInput{DBInstanceIdentifier: input.DBInstanceIdentifier}
-		_, err = a.RDS.RebootDBInstanceRequest(r).Send(ctx)
-		if err != nil {
-			return "", errors.Wrap(err, fmt.Sprintf("something went wrong in RebootDBInstanceRequest for db instance %v", input.DBInstanceIdentifier))
-		}
 	} else if err != nil {
-		return "", errors.Wrap(err, fmt.Sprintf("wasn't able to describe the db instance with id %v", input.DBInstanceIdentifier))
+		return errors.Wrap(err, fmt.Sprintf("wasn't able to describe the db instance with id %v", input.DBInstanceIdentifier))
 	}
 
-	log.Printf("Waiting for db instance %v to become available after restore\n", *input.DBInstanceIdentifier)
-	time.Sleep(5 * time.Second)
-	err = a.RDS.WaitUntilDBInstanceAvailable(ctx, k)
+	return nil
+}
+
+// Get Endpoint
+func (a *AWS) GetEndpoint(db *databasesv1.Rds) (string, error) {
+	log.Println("Trying to find the correct subnets")
+	subnetName, err := a.ensureSubnets(db)
 	if err != nil {
-		return "", errors.Wrap(err, fmt.Sprintf("something went wrong in WaitUntilDBInstanceAvailable for db instance %v", input.DBInstanceIdentifier))
+		return "", err
 	}
+
+	var securityGroups []string
+	if len(db.Spec.VpcSecurityGroupIds) > 0 {
+		securityGroups = append(securityGroups, db.Spec.VpcSecurityGroupIds)
+	} else {
+		securityGroups = a.SecurityGroups
+	}
+
+	input := convertSpecToInputRestore(db, subnetName, securityGroups)
 
 	// Get the newly created database so we can get the endpoint
 	dbHostname, err := getEndpoint(input.DBInstanceIdentifier, a.RDS)
 	if err != nil {
 		return "", err
 	}
+
 	return dbHostname, nil
+}
+
+//
+func (a *AWS) GetCurrent(db *databasesv1.Rds) (*rds.DescribeDBInstancesResponse, error) {
+	subnetName, err := a.ensureSubnets(db)
+	if err != nil {
+		return nil, err
+	}
+
+	var securityGroups []string
+	if len(db.Spec.VpcSecurityGroupIds) > 0 {
+		securityGroups = append(securityGroups, db.Spec.VpcSecurityGroupIds)
+	} else {
+		securityGroups = a.SecurityGroups
+	}
+
+	input := convertSpecToInputRestore(db, subnetName, securityGroups)
+
+	return a.RDS.DescribeDBInstancesRequest(&rds.DescribeDBInstancesInput{DBInstanceIdentifier: input.DBInstanceIdentifier}).Send(context.Background())
+}
+
+// RebootDatabase
+func (a *AWS) RebootDatabase(db *databasesv1.Rds) error {
+	ctx := context.Background()
+	log.Println("Trying to find the correct subnets")
+	subnetName, err := a.ensureSubnets(db)
+	if err != nil {
+		return err
+	}
+
+	var securityGroups []string
+	if len(db.Spec.VpcSecurityGroupIds) > 0 {
+		securityGroups = append(securityGroups, db.Spec.VpcSecurityGroupIds)
+	} else {
+		securityGroups = a.SecurityGroups
+	}
+
+	input := convertSpecToInputRestore(db, subnetName, securityGroups)
+
+	log.Printf("Reboot instance after restoring %v to apply params\n", *input.DBInstanceIdentifier)
+	r := &rds.RebootDBInstanceInput{DBInstanceIdentifier: input.DBInstanceIdentifier}
+	_, err = a.RDS.RebootDBInstanceRequest(r).Send(ctx)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("something went wrong in RebootDBInstanceRequest for db instance %v", input.DBInstanceIdentifier))
+	}
+
+	return nil
 }
 
 // DeleteDatabase ...
@@ -174,15 +196,6 @@ func (a *AWS) DeleteDatabase(db *databasesv1.Rds) error {
 		log.Println(errors.Wrap(err, fmt.Sprintf("unable to delete database %v", dbName)))
 		return err
 	}
-	log.Printf("Waiting for db instance %v to be deleted\n", dbName)
-	time.Sleep(5 * time.Second)
-	k := &rds.DescribeDBInstancesInput{DBInstanceIdentifier: aws.String(dbName)}
-	err = svc.WaitUntilDBInstanceDeleted(ctx, k)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	log.Println("Deleted DB instance: ", dbName)
 
 	// delete subnetgroup only for creation process
 	//if db.Spec.DBSnapshotIdentifier == "" {
@@ -246,6 +259,7 @@ func getEndpoint(dbName *string, svc *rds.Client) (string, error) {
 	k := &rds.DescribeDBInstancesInput{DBInstanceIdentifier: dbName}
 	res := svc.DescribeDBInstancesRequest(k)
 	instance, err := res.Send(ctx)
+	// pp.Println(instance.DBInstances)
 	if err != nil || len(instance.DBInstances) == 0 {
 		return "", fmt.Errorf("wasn't able to describe the db instance with id %v", dbName)
 	}

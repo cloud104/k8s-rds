@@ -1,94 +1,87 @@
 package rds
 
 import (
-	"context"
-	"fmt"
-
-	"k8s.io/apimachinery/pkg/types"
-
 	databasesv1 "github.com/cloud104/kube-db/api/v1"
-	controllers "github.com/cloud104/kube-db/controllers"
+	"github.com/k0kubun/pp"
 )
 
-func (a *Actuator) handleCreateDatabase(db *databasesv1.Rds, crdclient *controllers.RdsReconciler, ctx context.Context, namespacedName types.NamespacedName) error {
-	if db.Status.State == "Created" {
-		a.log.Info("database already created, skipping", "name", db.Name)
-		return nil
+// @TODO: change db state check for actual cloud request to verify state
+func (a *Actuator) handleCreateDatabase(db *databasesv1.Rds) (status databasesv1.RdsStatus, err error) {
+	log := a.log.WithValues("createDatabase", db.Name)
+	log.Info("Start creating")
+
+	// @TODO: Maybe update later
+	// If status CREATED, there's nothing to do
+	if db.Is("CREATED") {
+		log.Info("database already created, skipping")
+		return databasesv1.NewStatus("Database Created", "CREATED"), nil
 	}
 
-	// validate dbname is only alpha numeric
-	err := a.updateStatus(db, databasesv1.RdsStatus{Message: "Creating", State: "Creating"}, crdclient, ctx, namespacedName)
-	if err != nil {
-		return fmt.Errorf("database CRD status update failed: %v", err)
+	// If status WAITING:
+	// Check if done, if done:
+	// Create endpoint, then:
+	// Return CREATED
+	if db.Is("WAITING") {
+		log.Info("Getting endpoint")
+		hostname, err := a.k8srds.GetEndpoint(db)
+		if err != nil {
+			return databasesv1.NewStatus("Failing Geting endpoint", "ERROR"), err
+		}
+
+		log.Info("Creating service", "name", db.Name, "hostname", hostname, "namespace", db.Namespace)
+		err = a.kubeClient.ReconcileService(db.Namespace, hostname, db.Name)
+		if err != nil {
+			return databasesv1.NewStatus("Failing Create Service", "ERROR"), err
+		}
+
+		log.Info("Rebooting database")
+		err = a.k8srds.RebootDatabase(db)
+		if err != nil {
+			return databasesv1.NewStatus("Failed To Reboot Database", "ERROR"), err
+		}
+
+		return databasesv1.NewStatus("Database Created", "CREATED"), err
 	}
 
-	a.log.Info("getting secret: Name", "name", db.Spec.Password.Name, "key", db.Spec.Password.Key)
+	// If not CREATED and not WAITING, Create
+	log.Info("getting secret: Name", "name", db.Spec.Password.Name, "key", db.Spec.Password.Key)
 	pw, err := a.kubeClient.GetSecret(db.Namespace, db.Spec.Password.Name, db.Spec.Password.Key)
 	if err != nil {
-		return err
+		return databasesv1.NewStatus("Failing Geting Secret", "ERROR"), err
 	}
 
-	hostname, err := a.k8srds.CreateDatabase(db, pw)
+	err = a.k8srds.CreateDatabase(db, pw)
 	if err != nil {
-		return err
+		pp.Println(err)
+		return databasesv1.NewStatus("Failing Create", "ERROR"), err
 	}
 
-	a.log.Info("Creating service", "name", db.Name, "hostname", hostname, "namespace", db.Namespace)
-	err = a.kubeClient.CreateService(db.Namespace, hostname, db.Name)
-	if err != nil {
-		return err
-	}
-
-	err = a.updateStatus(db, databasesv1.RdsStatus{Message: "Created", State: "Created"}, crdclient, ctx, namespacedName)
-	if err != nil {
-		return err
-	}
-
-	a.log.Info("Creation of database", "name", db.Name)
-	return nil
+	log.Info("Creation of database done, will wait now")
+	return databasesv1.NewStatus("Creating Database", "WAITING"), err
 }
 
-func (a *Actuator) handleRestoreDatabase(db *databasesv1.Rds, crdclient *controllers.RdsReconciler, ctx context.Context, namespacedName types.NamespacedName) error {
-	if db.Status.State == "Created" {
-		a.log.Info("database already created, skipping", "name", db.Name)
-		return nil
+func (a *Actuator) handleRestoreDatabase(db *databasesv1.Rds) (status databasesv1.RdsStatus, err error) {
+	log := a.log.WithValues("restoreDatabase", db.Name)
+	log.Info("Starting restore")
+
+	// @TODO: Maybe update if created, later
+	if db.Is("CREATED") {
+		log.Info("database already created, skipping")
+		return databasesv1.RdsStatus{Message: "Created", State: "Created"}, nil
 	}
 
-	// validate dbname is only alpha numeric
-	err := a.updateStatus(db, databasesv1.RdsStatus{Message: "Creating", State: "Creating"}, crdclient, ctx, namespacedName)
+	log.Info("Restoring Database")
+	err = a.k8srds.RestoreDatabase(db)
 	if err != nil {
-		return fmt.Errorf("database CRD status update failed: %v", err)
+		return databasesv1.RdsStatus{Message: "Failing Restore", State: "Failing"}, err
 	}
 
-	a.log.Info("Restore Database")
-	hostname, err := a.k8srds.RestoreDatabase(db)
-	if err != nil {
-		return err
-	}
+	// log.Info("Creating service", "name", db.Name, "hostname", hostname, "namespace", db.Namespace)
+	// err = a.kubeClient.ReconcileService(db.Namespace, hostname, db.Name)
+	// if err != nil {
+	// 	return databasesv1.RdsStatus{Message: "Failing Create Service", State: "Failing"}, err
+	// }
 
-	a.log.Info("Creating service", "name", db.Name, "hostname", hostname, "namespace", db.Namespace)
-	err = a.kubeClient.CreateService(db.Namespace, hostname, db.Name)
-	if err != nil {
-		return err
-	}
-
-	err = a.updateStatus(db, databasesv1.RdsStatus{Message: "Created", State: "Created"}, crdclient, ctx, namespacedName)
-	if err != nil {
-		return err
-	}
-
-	a.log.Info("Creation of database done", "name", db.Name)
-	return nil
-}
-
-func (a *Actuator) updateStatus(db *databasesv1.Rds, status databasesv1.RdsStatus, crdclient *controllers.RdsReconciler, ctx context.Context, namespacedName types.NamespacedName) (err error) {
-	err = crdclient.Get(ctx, namespacedName, db)
-	if err != nil {
-		return
-	}
-
-	db.Status = status
-	err = crdclient.Update(ctx, db)
-
-	return
+	log.Info("Restoring database done")
+	return databasesv1.RdsStatus{Message: "Created", State: "Created"}, nil
 }

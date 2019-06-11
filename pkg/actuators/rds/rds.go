@@ -35,22 +35,27 @@ func NewActuator(log logr.Logger, config *rest.Config) (*Actuator, error) {
 	ec2client := ec2.New(awsConfig)
 	rdsclient := rds.New(awsConfig)
 
-	securityGroups, err := getSecurityGroups(ec2client, kubectl)
-	if err != nil {
-		return nil, err
-	}
+	// securityGroups, err := getSecurityGroups(ec2client, kubectl)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	subnets, err := getSubnets(ec2client, false, kubectl)
-	if err != nil {
-		return nil, err
-	}
+	// subnets, err := getSubnets(ec2client, false, kubectl)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &Actuator{
 		log:        log,
 		ec2client:  ec2client,
 		rdsclient:  rdsclient,
 		kubeClient: &Kube{Client: kubectl},
-		k8srds:     &k8srds.AWS{RDS: rdsclient, EC2: ec2client, Subnets: subnets, SecurityGroups: securityGroups},
+		k8srds: &k8srds.AWS{
+			RDS:            rdsclient,
+			EC2:            ec2client,
+			Subnets:        []string{},
+			SecurityGroups: []string{},
+		},
 	}, nil
 }
 

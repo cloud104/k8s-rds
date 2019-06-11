@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/k0kubun/pp"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	controllerError "sigs.k8s.io/cluster-api/pkg/controller/error"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,13 +46,12 @@ type RdsReconciler struct {
 
 func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	log := r.Log.WithValues("rds", req.NamespacedName)
+	log := r.Log.WithValues("namespacedName", req.NamespacedName)
 	instance := databasesv1.Rds{}
 
-	// panic("ONO")
-	// .Actuator.
-	// &instance, r, ctx, req.NamespacedName
+	log.Info("Running reconcile rds")
 
+	// Get record from kubernetes api
 	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
 		log.Error(err, "Unable to fetch rds")
 		if apierrs.IsNotFound(err) {
@@ -60,14 +60,12 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	log.Info("Running reconcile rds", "name", instance.Name)
-
 	// If object hasn't been deleted and doesn't have a finalizer, add one
 	// Add a finalizer to newly created objects.
 	if instance.ObjectMeta.DeletionTimestamp.IsZero() && !util.Contains(instance.ObjectMeta.Finalizers, databasesv1.RdsFinalizer) {
 		instance.Finalizers = append(instance.Finalizers, databasesv1.RdsFinalizer)
 		if err := r.Update(context.Background(), &instance); err != nil {
-			log.Info("failed to add finalizer to rds", "name", instance.Name, "err", err)
+			log.Error(err, "failed to add finalizer to rds")
 			return ctrl.Result{}, err
 		}
 
@@ -75,45 +73,87 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
+	// Delete
 	if !instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		// no-op if finalizer has been removed.
 		if !util.Contains(instance.ObjectMeta.Finalizers, databasesv1.RdsFinalizer) {
-			log.Info("reconciling rds object causes a no-op as there is no finalizer", "name", instance.Name)
+			log.Info("reconciling rds object causes a no-op as there is no finalizer")
 			return ctrl.Result{}, nil
 		}
 
-		log.Info("reconciling rds object triggers delete", "name", instance.Name)
-		status, err := r.Actuator.Delete(&instance, r, ctx, req.NamespacedName)
-		pp.Println(status)
+		// Call actuator delete
+		log.Info("reconciling rds object triggers delete")
+		err := r.Actuator.Delete(&instance, r, ctx, req.NamespacedName)
 		if err != nil {
-			log.Error(err, "Error deleting rds object", "name", instance.Name)
+			log.Error(err, "Error deleting rds object")
 			return ctrl.Result{}, err
 		}
+
 		// Remove finalizer on successful deletion.
-		log.Info("rds object deletion successful, removing finalizer", "name", instance.Name)
+		log.Info("rds object deletion successful, removing finalizer")
 		instance.ObjectMeta.Finalizers = util.Filter(instance.ObjectMeta.Finalizers, databasesv1.RdsFinalizer)
 		if err := r.Client.Update(context.Background(), &instance); err != nil {
-			log.Error(err, "Error removing finalizer from rds object", "name", instance.Name)
+			log.Error(err, "Error removing finalizer from rds object")
 			return ctrl.Result{}, err
 		}
+
 		return ctrl.Result{}, nil
 	}
 
-	log.Info("reconciling rds object triggers idempotent reconcile", "name", instance.Name)
+	// Reconcile
+	log.Info("reconciling rds object triggers idempotent reconcile")
 	status, err := r.Actuator.Reconcile(&instance, r, ctx, req.NamespacedName)
-	pp.Println(status)
+	// If Error, handle error
 	if err != nil {
 		if requeueErr, ok := err.(*controllerError.RequeueAfterError); ok {
-			log.Info("Actuator returned requeue after error", "requeueErr", requeueErr)
+			log.Error(requeueErr, "Actuator returned requeue after error")
 			return ctrl.Result{Requeue: true, RequeueAfter: requeueErr.RequeueAfter}, nil
 		}
-		log.Error(err, "Error reconciling rds object", "name", instance.Name)
+
+		log.Error(err, "Error reconciling rds object")
 		return ctrl.Result{}, err
 	}
 
+	pp.Println("Returning", status)
+
+	// Update Status
+	if err := r.updateStatus(&instance, status, context.Background(), req.NamespacedName); err != nil {
+		log.Info("Update Status Failed", "error", err)
+		return ctrl.Result{}, nil
+	}
+
+	// If state is diferent (WAITING, ERROR) from CREATED requeue
+	if status.State != "CREATED" {
+		log.Info("Creating, requeueing")
+		return ctrl.Result{Requeue: true, RequeueAfter: 100}, nil
+	}
+
+	// If CREATED return done
 	return ctrl.Result{}, nil
+}
+
+func (r *RdsReconciler) updateStatus(db *databasesv1.Rds, status databasesv1.RdsStatus, ctx context.Context, namespacedName types.NamespacedName) (err error) {
+	err = r.Get(ctx, namespacedName, db)
+	if err != nil {
+		return
+	}
+	db.Status = status
+	err = r.Update(ctx, db)
+	return
 }
 
 func (r *RdsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).For(&databasesv1.Rds{}).Complete(r)
 }
+
+// func (r *RdsReconciler) addFinalizer(db *databasesv1.Rds) {
+// 	finalizers := sets.NewString(db.Finalizers...)
+// 	finalizers.Insert(databasesv1.RdsFinalizer)
+// 	db.Finalizers = finalizers.List()
+// }
+
+// func (r *RdsReconciler) removeFinalizer(db *databasesv1.Rds) {
+// 	finalizers := sets.NewString(db.Finalizers...)
+// 	finalizers.Delete(databasesv1.RdsFinalizer)
+// 	db.Finalizers = finalizers.List()
+// }
