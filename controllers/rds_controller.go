@@ -88,6 +88,12 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			return ctrl.Result{}, err
 		}
 
+		// Update Status
+		if err := r.updateStatus(&instance, status, context.Background(), req.NamespacedName); err != nil {
+			log.Info("Update Status Failed", "error", err)
+			return ctrl.Result{}, nil
+		}
+
 		if status.State != "DELETED" {
 			log.Info("Deleting, requeueing")
 			return ctrl.Result{Requeue: true, RequeueAfter: 100}, nil

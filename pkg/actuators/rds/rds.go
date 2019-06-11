@@ -21,7 +21,7 @@ import (
 const Failed = "Failed"
 const dryRunDelete = false
 
-func NewActuator(log logr.Logger, config *rest.Config) (*Actuator, error) {
+func NewActuator(log logr.Logger, config *rest.Config) (a *Actuator, err error) {
 	kubectl, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -35,15 +35,17 @@ func NewActuator(log logr.Logger, config *rest.Config) (*Actuator, error) {
 	ec2client := ec2.New(awsConfig)
 	rdsclient := rds.New(awsConfig)
 
-	// securityGroups, err := getSecurityGroups(ec2client, kubectl)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	// securityGroups := []string{}
+	securityGroups, err := getSecurityGroups(ec2client, kubectl)
+	if err != nil {
+		return nil, err
+	}
 
-	// subnets, err := getSubnets(ec2client, false, kubectl)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	// subnets := []string{}
+	subnets, err := getSubnets(ec2client, false, kubectl)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Actuator{
 		log:        log,
@@ -53,8 +55,8 @@ func NewActuator(log logr.Logger, config *rest.Config) (*Actuator, error) {
 		k8srds: &k8srds.AWS{
 			RDS:            rdsclient,
 			EC2:            ec2client,
-			Subnets:        []string{},
-			SecurityGroups: []string{},
+			Subnets:        subnets,
+			SecurityGroups: securityGroups,
 		},
 	}, nil
 }
