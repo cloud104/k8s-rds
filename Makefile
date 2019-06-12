@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= gcr.io/totvscloud104/kube-db:latest
+IMG ?= quay.io/cloud104/kube-db:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 

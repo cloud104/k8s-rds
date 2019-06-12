@@ -3,7 +3,6 @@ secrets:
   aws_secret_access_key: "@TODO"
 
 image:
-  registry: gcr.io/totvscloud104
+  registry: quay.io/cloud104
   repository: kube-db
   pullPolicy: Always
-  pullSecret: "@TODO"

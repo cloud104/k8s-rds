@@ -16,10 +16,12 @@ pipeline:
       - GOOS=linux CGO_ENABLED=0 GO111MODULE=on go build
 
   publish-feature:
-    image: plugins/gcr
+    image: plugins/docker
     group: deploy
-    repo: gcr.io/totvscloud104/kube-db
-    secrets: [ gcr_json_key ]
+    repo: quay.io/cloud104/${DRONE_REPO_NAME}
+    secrets: [ docker_username, docker_password ]
+    environment:
+      - DOCKER_REGISTRY=quay.io
     tags:
       - "latest"
       - ${DRONE_BRANCH/\//-}-${DRONE_BUILD_NUMBER}
@@ -35,11 +37,13 @@ pipeline:
         include: [ develop ]
 
   publish:
-    image: plugins/gcr
-    repo: gcr.io/totvscloud104/kube-db
-    secrets: [ gcr_json_key ]
-    auto_tag: true
+    image: plugins/docker
     group: deploy
+    repo: quay.io/cloud104/${DRONE_REPO_NAME}
+    secrets: [ docker_username, docker_password ]
+    environment:
+      - DOCKER_REGISTRY=quay.io
+    auto_tag: true
     when:
       event: tag
 

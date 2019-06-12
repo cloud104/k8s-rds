@@ -20,8 +20,6 @@ spec:
         control-plane: controller-manager
         controller-tools.k8s.io: "1.0"
     spec:
-      imagePullSecrets:
-      - name: {{ include "kube-db.fullname" . }}-image-pull-secret
       # initContainers:
       # - name: vault-authenticator
       #   image: sethvargo/vault-kubernetes-authenticator:0.2.0
