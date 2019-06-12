@@ -19,7 +19,7 @@ import (
 )
 
 const Failed = "Failed"
-const dryRunDelete = false
+const dryRun = true
 
 func NewActuator(log logr.Logger, config *rest.Config) (a *Actuator, err error) {
 	kubectl, err := kubernetes.NewForConfig(config)

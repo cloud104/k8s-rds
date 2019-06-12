@@ -6,13 +6,13 @@ import (
 	"log"
 	"time"
 
-	databasesv1 "github.com/cloud104/kube-db/api/v1"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/pkg/errors"
+
+	databasesv1 "github.com/cloud104/kube-db/api/v1"
 )
 
 // AWS ...
@@ -124,11 +124,16 @@ func (a *AWS) GetEndpoint(db *databasesv1.Rds) (string, error) {
 	return dbHostname, nil
 }
 
-//
-func (a *AWS) GetCurrent(db *databasesv1.Rds) (*rds.DescribeDBInstancesResponse, error) {
+// https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.DBInstance.Status.html
+// GetStatus
+// available
+// creating
+// deleting
+// rebooting
+func (a *AWS) GetStatus(db *databasesv1.Rds) (string, error) {
 	subnetName, err := a.ensureSubnets(db)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	var securityGroups []string
@@ -139,8 +144,14 @@ func (a *AWS) GetCurrent(db *databasesv1.Rds) (*rds.DescribeDBInstancesResponse,
 	}
 
 	input := convertSpecToInputRestore(db, subnetName, securityGroups)
-
-	return a.RDS.DescribeDBInstancesRequest(&rds.DescribeDBInstancesInput{DBInstanceIdentifier: input.DBInstanceIdentifier}).Send(context.Background())
+	instance, err := a.RDS.DescribeDBInstancesRequest(&rds.DescribeDBInstancesInput{DBInstanceIdentifier: input.DBInstanceIdentifier}).Send(context.Background())
+	if err != nil {
+		return "pending", nil
+	}
+	if len(instance.DescribeDBInstancesOutput.DBInstances) <= 0 {
+		return "", fmt.Errorf("NoDBInstances")
+	}
+	return *instance.DescribeDBInstancesOutput.DBInstances[0].DBInstanceStatus, err
 }
 
 // RebootDatabase

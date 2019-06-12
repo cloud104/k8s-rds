@@ -10,18 +10,32 @@ func (a *Actuator) handleCreateDatabase(db *databasesv1.Rds) (status databasesv1
 	log := a.log.WithValues("createDatabase", db.Name)
 	log.Info("Start creating")
 
-	// @TODO: Maybe update later
-	// If status CREATED, there's nothing to do
-	if db.Is("CREATED") {
+	currentStatus, err := a.k8srds.GetStatus(db)
+	if err != nil {
+		return databasesv1.NewStatus("Error Getting Status", "ERROR"), err
+	}
+
+	hasService := a.kubeClient.HasService(db.Namespace, db.Name)
+
+	// If available and hasService: already Created and Reboted
+	if currentStatus == "available" && hasService {
 		log.Info("database already created, skipping")
 		return databasesv1.NewStatus("Database Created", "CREATED"), nil
 	}
 
-	// If status WAITING:
-	// Check if done, if done:
-	// Create endpoint, then:
-	// Return CREATED
-	if db.Is("WAITING") {
+	// If available and doesn't hasService, reboot before creating service
+	if currentStatus == "available" && !hasService {
+		log.Info("Rebooting database")
+		err = a.k8srds.RebootDatabase(db)
+		if err != nil {
+			return databasesv1.NewStatus("Failed To Reboot Database", "ERROR"), err
+		}
+
+		return databasesv1.NewStatus("Database Rebooted", "WAITING"), err
+	}
+
+	// If available and doesn't has service, create service
+	if currentStatus == "available" && !hasService {
 		log.Info("Getting endpoint")
 		hostname, err := a.k8srds.GetEndpoint(db)
 		if err != nil {
@@ -34,16 +48,10 @@ func (a *Actuator) handleCreateDatabase(db *databasesv1.Rds) (status databasesv1
 			return databasesv1.NewStatus("Failing Create Service", "ERROR"), err
 		}
 
-		log.Info("Rebooting database")
-		err = a.k8srds.RebootDatabase(db)
-		if err != nil {
-			return databasesv1.NewStatus("Failed To Reboot Database", "ERROR"), err
-		}
-
-		return databasesv1.NewStatus("Database Created", "CREATED"), err
+		return databasesv1.NewStatus("Creating Database", "WAITING"), err
 	}
 
-	// If not CREATED and not WAITING, Create
+	// If not available and has no service, create
 	log.Info("getting secret: Name", "name", db.Spec.Password.Name, "key", db.Spec.Password.Key)
 	pw, err := a.kubeClient.GetSecret(db.Namespace, db.Spec.Password.Name, db.Spec.Password.Key)
 	if err != nil {
@@ -64,6 +72,7 @@ func (a *Actuator) handleCreateDatabase(db *databasesv1.Rds) (status databasesv1
 func (a *Actuator) handleRestoreDatabase(db *databasesv1.Rds) (status databasesv1.RdsStatus, err error) {
 	log := a.log.WithValues("restoreDatabase", db.Name)
 	log.Info("Starting restore")
+	pp.Println(db.Status)
 
 	// @TODO: Maybe update if created, later
 	if db.Is("CREATED") {

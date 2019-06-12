@@ -49,7 +49,7 @@ spec:
         - --metrics-addr=127.0.0.1:8080
         command:
         - /manager
-        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
+        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.version }}"
         imagePullPolicy: Always
         env: {{- include "kube-db.env" . | nindent 8 }}
         name: manager

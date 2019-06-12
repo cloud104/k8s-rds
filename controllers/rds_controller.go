@@ -42,7 +42,6 @@ type RdsReconciler struct {
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;create;update;delete
-
 func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("namespacedName", req.NamespacedName)
@@ -52,10 +51,10 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// Get record from kubernetes api
 	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
-		log.Error(err, "Unable to fetch rds")
 		if apierrs.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
+		log.Error(err, "No record found")
 		return ctrl.Result{}, err
 	}
 

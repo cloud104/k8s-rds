@@ -41,6 +41,12 @@ func (k *Kube) ReconcileService(namespace string, hostname string, internalName 
 	return err
 }
 
+// HasService
+func (k *Kube) HasService(namespace string, internalName string) bool {
+	_, err := k.Client.CoreV1().Services(namespace).Get(internalName, metav1.GetOptions{})
+	return err == nil
+}
+
 func (k *Kube) DeleteService(namespace string, dbname string) error {
 	serviceInterface := k.Client.CoreV1().Services(namespace)
 	err := serviceInterface.Delete(dbname, &metav1.DeleteOptions{})
