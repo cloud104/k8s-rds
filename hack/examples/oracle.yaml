@@ -2,7 +2,7 @@ apiVersion: databases.tks.sh/v1
 kind: Rds
 metadata:
   # Will be the name of the database and the service
-  name: c12345-test
+  name: c12345-oracle-test
 spec:
   availabilityZone: us-east-2a
   backupRetentionPeriod: 7
