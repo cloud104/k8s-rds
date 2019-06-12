@@ -19,6 +19,10 @@ func (a *Actuator) Reconcile(db *databasesv1.Rds, client *controllers.RdsReconci
 
 	hasService := a.kubeClient.HasService(db.Namespace, db.Name)
 
+	if currentStatus == "creating" || currentStatus == "deleting" {
+		return databasesv1.NewStatus("Database not in a reconcilable state, will wait", "WAITING"), err
+	}
+
 	// If available and hasService: already Created and Reboted
 	if currentStatus == "available" && hasService {
 		log.Info("database reconciliation done, skipping")
@@ -36,8 +40,8 @@ func (a *Actuator) Reconcile(db *databasesv1.Rds, client *controllers.RdsReconci
 		return databasesv1.NewStatus("Database Rebooted", "WAITING"), err
 	}
 
-	// If available and doesn't has service, reconcile service
-	if currentStatus == "available" && !hasService {
+	// If has no service and is not pending, reconcile service
+	if currentStatus != "pending" && !hasService {
 		log.Info("Getting endpoint")
 		hostname, err := a.k8srds.GetEndpoint(db)
 		if err != nil {
