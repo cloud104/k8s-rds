@@ -19,24 +19,7 @@ func (a *Actuator) Reconcile(db *databasesv1.Rds, client *controllers.RdsReconci
 
 	hasService := a.kubeClient.HasService(db.Namespace, db.Name)
 
-	// If has no service and is not pending, reconcile service
-	if currentStatus != "pending" && !hasService {
-		log.Info("Getting endpoint")
-		hostname, err := a.k8srds.GetEndpoint(db)
-		if err != nil {
-			return databasesv1.NewStatus("Waiting for endpoint to be available", currentStatus), err
-		}
-
-		log.Info("Reconciling service", "name", db.Name, "hostname", hostname, "namespace", db.Namespace)
-		err = a.kubeClient.ReconcileService(db.Namespace, hostname, db.Name)
-		if err != nil {
-			return databasesv1.NewStatus("Failing Reconciled Service", currentStatus), err
-		}
-
-		return databasesv1.NewStatus("Reconciling Database", currentStatus), err
-	}
-
-	if currentStatus == "creating" || currentStatus == "deleting" || currentStatus == "rebooting" {
+	if currentStatus == "creating" || currentStatus == "deleting" {
 		return databasesv1.NewStatus("Database not in a reconcilable state, will wait", currentStatus), err
 	}
 
@@ -55,6 +38,23 @@ func (a *Actuator) Reconcile(db *databasesv1.Rds, client *controllers.RdsReconci
 		}
 
 		return databasesv1.NewStatus("Database Rebooted", currentStatus), err
+	}
+
+	// If has no service and is not pending, reconcile service
+	if currentStatus != "pending" && !hasService {
+		log.Info("Getting endpoint")
+		hostname, err := a.k8srds.GetEndpoint(db)
+		if err != nil {
+			return databasesv1.NewStatus("Waiting for endpoint to be available", currentStatus), err
+		}
+
+		log.Info("Reconciling service", "name", db.Name, "hostname", hostname, "namespace", db.Namespace)
+		err = a.kubeClient.ReconcileService(db.Namespace, hostname, db.Name)
+		if err != nil {
+			return databasesv1.NewStatus("Failing Reconciled Service", currentStatus), err
+		}
+
+		return databasesv1.NewStatus("Reconciling Database", currentStatus), err
 	}
 
 	// If not available and has no service, reconciliate
