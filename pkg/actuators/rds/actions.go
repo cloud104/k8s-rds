@@ -41,7 +41,7 @@ func (a *Actuator) Reconcile(db *databasesv1.Rds, client *controllers.RdsReconci
 	}
 
 	// If has no service and is not pending, reconcile service
-	if currentStatus != "pending" && !hasService {
+	if currentStatus == "rebooting" && !hasService {
 		log.Info("Getting endpoint")
 		hostname, err := a.k8srds.GetEndpoint(db)
 		if err != nil {
