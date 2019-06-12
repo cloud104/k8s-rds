@@ -93,7 +93,7 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			return ctrl.Result{}, nil
 		}
 
-		if status.State != "DELETED" {
+		if status.State != "pending" {
 			log.Info("Deleting, requeueing", "status", status)
 			return ctrl.Result{Requeue: true, RequeueAfter: 100}, nil
 		}
@@ -130,7 +130,7 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// If state is diferent (WAITING, ERROR) from CREATED requeue
-	if status.State != "CREATED" {
+	if status.State != "available" {
 		log.Info("Creating, requeueing", "status", status)
 		return ctrl.Result{Requeue: true, RequeueAfter: 100}, nil
 	}

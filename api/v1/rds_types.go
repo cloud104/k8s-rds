@@ -23,15 +23,6 @@ import (
 // RdsFinalizer ...
 const RdsFinalizer = "rds.k8s.io"
 
-// RdsStatus
-var RdsStausList = map[string]string{
-	"CREATED":  "CREATED",
-	"DELETING": "DELETING",
-	"DELETED":  "DELETED",
-	"ERROR":    "ERROR",
-	"WAITING":  "WAITING",
-}
-
 // RdsSpec defines the desired state of Rds
 type RdsSpec struct {
 	AvailabilityZone      string               `json:"availabilityZone"`
@@ -93,6 +84,6 @@ func (r *Rds) Is(state string) bool {
 func NewStatus(message string, state string) RdsStatus {
 	return RdsStatus{
 		Message: message,
-		State:   RdsStausList[state],
+		State:   state,
 	}
 }
