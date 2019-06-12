@@ -17,11 +17,12 @@ func (a *Actuator) Reconcile(db *databasesv1.Rds, client *controllers.RdsReconci
 		return databasesv1.NewStatus("Error Getting Status", currentStatus), err
 	}
 
-	hasService := a.kubeClient.HasService(db.Namespace, db.Name)
-
-	if currentStatus == "creating" || currentStatus == "deleting" {
+	if currentStatus != "available" || currentStatus != "rebooting" || currentStatus != "pending" {
 		return databasesv1.NewStatus("Database not in a reconcilable state, will wait", currentStatus), err
 	}
+
+	// Check if service exists
+	hasService := a.kubeClient.HasService(db.Namespace, db.Name)
 
 	// If available and hasService: already Created and Reboted
 	if currentStatus == "available" && hasService {
