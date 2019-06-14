@@ -23,11 +23,10 @@ You can start the the controller with helm
 ```
 helm upgrade kube-db ./hack/helm \
                 -f ./hack/helm/values.yaml \
-                --namespace=kube-db-system \
+                --namespace=kube-db \
                 --set image.tag="latest" \
                 --set secrets.aws_access_key_id="@TODO" \
                 --set secrets.aws_secret_access_key="@TODO" \
-                --set image.pullSecret="@TODO" \
                 --debug \
                 --install
 ```
@@ -82,7 +81,7 @@ And on the AWS RDS page
 
 ## Kubebuilder init
 
-- env GOPATH=$HOME/Workspace  GO111MODULE=on kubebuilder init --domain tks.sh
+- env GOPATH=$HOME/Workspace GO111MODULE=on kubebuilder init --domain tks.sh
 - env GOPATH=$HOME/Workspace GO111MODULE=on kubebuilder create api --group databases --version v1 --kind Rds --controller=true --resource=true
 
 # TODO
@@ -91,10 +90,8 @@ And on the AWS RDS page
 - [] Cluster support
 - [] Google Cloud SQL for PostgreSQL support
 - [] Local PostgreSQL support
-- [] Transform rds creation into a configurable cli
 - [] Azure support
-- [] Make it read from a VERSION file and log
-- [] Tests
+- [x] Parallel running
 
 ## TEST
 
@@ -103,13 +100,11 @@ And on the AWS RDS page
 - [] Get latest snapshot when restoring
   - [] On delete check if snapshot was done correctly
 - [] Delete check snapshot
-- [] Create/Restore postgres
-- [] Create/Restore oracle
+- [] Create/Restore/Delete RDS
+- [] Create/Restore/Delete Google
 
 ## References
 
-- https://github.com/cloud104/kube-db
-- https://github.com/cloud104/tks-uptimerobot-controller
 - https://github.com/cloud104/tks-controller
 - https://itnext.io/how-to-create-a-kubernetes-custom-controller-using-client-go-f36a7a7536cc
 - https://github.com/krallistic/kafka-operator
@@ -118,6 +113,17 @@ And on the AWS RDS page
 - https://book.kubebuilder.io/quick-start.html
 - https://github.com/kubernetes-sigs/cluster-api
 - https://blog.golang.org/using-go-modules
+
+### Kubebuilder example code
+
+- https://github.com/cloud104/tks-uptimerobot-controller
+- https://github.com/cybozu-go/contour-plus
+- https://github.com/elastic/cloud-on-k8s
+- https://github.com/bldy/rxd
+- https://github.com/vincent-pli/tekton-listener
+- https://github.com/akrausesap/goexperiments
+- https://github.com/cuotos/cfdnsoperator
+- https://github.com/codecentric/kubebuilder-starwars-example
 - https://github.com/morvencao/kubecronjob
 
 ### Google reference
