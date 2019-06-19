@@ -5,7 +5,6 @@ import (
 
 	databasesv1 "github.com/cloud104/kube-db/api/v1"
 	controllers "github.com/cloud104/kube-db/controllers"
-	"github.com/k0kubun/pp"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -19,19 +18,19 @@ func (a *Actuator) Reconcile(db *databasesv1.Rds, client *controllers.RdsReconci
 		return databasesv1.NewStatus(err.Error(), "error"), err
 	}
 
-	// Get database pendingReboot state
-	pendingReboot, err := a.k8srds.PendingReboot(db)
-	if err != nil {
-		pp.Println(err)
-		return databasesv1.NewStatus(err.Error(), "error"), err
-	}
+	// // Get database pendingReboot state
+	// pendingReboot, err := a.k8srds.PendingReboot(db)
+	// if err != nil {
+	// 	pp.Println(err)
+	// 	return databasesv1.NewStatus(err.Error(), "error"), err
+	// }
 
 	// Get service current state
 	hasService := a.kubeClient.HasService(db.Namespace, db.Name)
 
 	// AVAILABLE, SKIP
 	// If AVAILABLE and HAS_SERVICE: nothing to do, already Created and Reboted
-	if currentStatus == "available" && hasService && pendingReboot {
+	if currentStatus == "available" && hasService {
 		log.Info("database reconciliation done, skipping")
 		return databasesv1.NewStatus("Database reconciled", currentStatus), nil
 	}
@@ -49,7 +48,7 @@ func (a *Actuator) Reconcile(db *databasesv1.Rds, client *controllers.RdsReconci
 
 	// SERVICE
 	// If NO_SERVICE: Create service
-	if currentStatus == "available" && !hasService && !pendingReboot {
+	if currentStatus == "available" && !hasService {
 		log.Info("Getting endpoint")
 		hostname, err := a.k8srds.GetEndpoint(db)
 		if err != nil {

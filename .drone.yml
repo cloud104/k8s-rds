@@ -41,6 +41,7 @@ pipeline:
 
   tag:
     image: cloud104/drone-github-tag
+    group: build
     secrets: [ plugin_github_token ]
     when:
       branch:
