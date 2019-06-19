@@ -131,9 +131,34 @@ func (a *AWS) GetEndpoint(db *databasesv1.Rds) (string, error) {
 // deleting
 // rebooting
 func (a *AWS) GetStatus(db *databasesv1.Rds) (string, error) {
+	instance, err := a.getInstance(db)
+	if err != nil {
+		if err.Error() == "DBInstanceNotFound" {
+			return "pending", nil
+		}
+		return "error", err
+	}
+	return *instance.DBInstanceStatus, nil
+}
+
+func (a *AWS) PendingReboot(db *databasesv1.Rds) (bool, error) {
+	_, err := a.getInstance(db)
+	if err != nil {
+		if err.Error() == "DBInstanceNotFound" {
+			return false, nil
+		}
+		// If error, send rebooted and error
+		return false, err
+	}
+
+	// Get status and return if rebooted
+	return false, nil
+}
+
+func (a *AWS) getInstance(db *databasesv1.Rds) (*rds.DBInstance, error) {
 	subnetName, err := a.ensureSubnets(db)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var securityGroups []string
@@ -146,12 +171,15 @@ func (a *AWS) GetStatus(db *databasesv1.Rds) (string, error) {
 	input := convertSpecToInputRestore(db, subnetName, securityGroups)
 	instance, err := a.RDS.DescribeDBInstancesRequest(&rds.DescribeDBInstancesInput{DBInstanceIdentifier: input.DBInstanceIdentifier}).Send(context.Background())
 	if err != nil {
-		return "pending", nil
+		if awsErr, ok := err.(awserr.Error); ok {
+			return nil, fmt.Errorf(awsErr.Code())
+		}
+		return nil, err
 	}
 	if len(instance.DescribeDBInstancesOutput.DBInstances) <= 0 {
-		return "", fmt.Errorf("NoDBInstances")
+		return nil, fmt.Errorf("InstancesOutputEmpty")
 	}
-	return *instance.DescribeDBInstancesOutput.DBInstances[0].DBInstanceStatus, err
+	return &instance.DescribeDBInstancesOutput.DBInstances[0], nil
 }
 
 // RebootDatabase

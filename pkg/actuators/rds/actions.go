@@ -5,6 +5,7 @@ import (
 
 	databasesv1 "github.com/cloud104/kube-db/api/v1"
 	controllers "github.com/cloud104/kube-db/controllers"
+	"github.com/k0kubun/pp"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -12,37 +13,43 @@ func (a *Actuator) Reconcile(db *databasesv1.Rds, client *controllers.RdsReconci
 	log := a.log.WithValues("reconcilingDatabase", db.Name)
 	log.Info("Start reconciling")
 
+	// Get database current status
 	currentStatus, err := a.k8srds.GetStatus(db)
 	if err != nil {
-		return databasesv1.NewStatus("Error Getting Status", currentStatus), err
+		return databasesv1.NewStatus(err.Error(), "error"), err
 	}
 
-	if currentStatus != "available" || currentStatus != "rebooting" || currentStatus != "pending" {
-		return databasesv1.NewStatus("Database not in a reconcilable state, will wait", currentStatus), err
+	// Get database pendingReboot state
+	pendingReboot, err := a.k8srds.PendingReboot(db)
+	if err != nil {
+		pp.Println(err)
+		return databasesv1.NewStatus(err.Error(), "error"), err
 	}
 
-	// Check if service exists
+	// Get service current state
 	hasService := a.kubeClient.HasService(db.Namespace, db.Name)
 
-	// If available and hasService: already Created and Reboted
-	if currentStatus == "available" && hasService {
+	// AVAILABLE, SKIP
+	// If AVAILABLE and HAS_SERVICE: nothing to do, already Created and Reboted
+	if currentStatus == "available" && hasService && pendingReboot {
 		log.Info("database reconciliation done, skipping")
 		return databasesv1.NewStatus("Database reconciled", currentStatus), nil
 	}
 
-	// If available and doesn't hasService, reboot before reconciling service
-	if currentStatus == "available" && !hasService {
-		log.Info("Rebooting database")
-		err = a.k8srds.RebootDatabase(db)
-		if err != nil {
-			return databasesv1.NewStatus("Failed To Reboot Database", currentStatus), err
-		}
+	// // REBOOT
+	// // If AVAILABLE and HAS_NO_SERVICE: reboot before reconciling service
+	// if currentStatus == "available" && !pendingReboot {
+	// 	log.Info("Rebooting database")
+	// 	err = a.k8srds.RebootDatabase(db)
+	// 	if err != nil {
+	// 		return databasesv1.NewStatus("Failed To Reboot Database", currentStatus), err
+	// 	}
+	// 	return databasesv1.NewStatus("Database PendingReboot", currentStatus), err
+	// }
 
-		return databasesv1.NewStatus("Database Rebooted", currentStatus), err
-	}
-
-	// If has no service and is not pending, reconcile service
-	if currentStatus == "rebooting" && !hasService {
+	// SERVICE
+	// If NO_SERVICE: Create service
+	if currentStatus == "available" && !hasService && !pendingReboot {
 		log.Info("Getting endpoint")
 		hostname, err := a.k8srds.GetEndpoint(db)
 		if err != nil {
@@ -58,7 +65,12 @@ func (a *Actuator) Reconcile(db *databasesv1.Rds, client *controllers.RdsReconci
 		return databasesv1.NewStatus("Reconciling Database", currentStatus), err
 	}
 
-	// If not available and has no service, reconciliate
+	// If went throw all validations and arrived here with status diferent  from pending, return
+	if currentStatus != "pending" {
+		return databasesv1.NewStatus("Database not in a reconcilable state, will wait", currentStatus), nil
+	}
+
+	// If pending and has no service, reconciliate
 
 	// Based in the field, it creates or restores
 	if db.Spec.DBSnapshotIdentifier != "" {
@@ -74,7 +86,7 @@ func (a *Actuator) Reconcile(db *databasesv1.Rds, client *controllers.RdsReconci
 		err = a.k8srds.CreateDatabase(db, pw)
 	}
 	if err != nil {
-		return databasesv1.NewStatus("Failing Create", currentStatus), err
+		return databasesv1.NewStatus(err.Error(), currentStatus), err
 	}
 
 	log.Info("Reconciliation of database done, will wait now")
@@ -99,7 +111,7 @@ func (a *Actuator) Delete(db *databasesv1.Rds, client *controllers.RdsReconciler
 		log.Info("deleting database")
 		err := a.k8srds.DeleteDatabase(db)
 		if err != nil {
-			return databasesv1.NewStatus("ERROR Deleting", currentStatus), err
+			return databasesv1.NewStatus(err.Error(), currentStatus), err
 		}
 
 		return databasesv1.NewStatus("Deleting", currentStatus), err

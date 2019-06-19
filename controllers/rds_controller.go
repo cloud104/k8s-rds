@@ -112,21 +112,22 @@ func (r *RdsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// Reconcile
 	log.Info("reconciling rds object triggers idempotent reconcile")
 	status, err := r.Actuator.Reconcile(&instance, r, ctx, req.NamespacedName)
-	// If Error, handle error
-	if err != nil {
+
+	// Update Status
+	if err := r.updateStatus(&instance, status, context.Background(), req.NamespacedName); err != nil {
 		if requeueErr, ok := err.(*controllerError.RequeueAfterError); ok {
 			log.Error(requeueErr, "Actuator returned requeue after error")
 			return ctrl.Result{Requeue: true, RequeueAfter: requeueErr.RequeueAfter}, nil
 		}
 
-		log.Error(err, "Error reconciling rds object")
-		return ctrl.Result{}, err
+		log.Info("Update Status Failed", "error", err, "status", status)
+		return ctrl.Result{Requeue: true, RequeueAfter: 100}, nil
 	}
 
-	// Update Status
-	if err := r.updateStatus(&instance, status, context.Background(), req.NamespacedName); err != nil {
-		log.Info("Update Status Failed", "error", err)
-		return ctrl.Result{}, nil
+	// If Error, handle error
+	if err != nil {
+		log.Error(err, "Error reconciling rds object")
+		return ctrl.Result{}, err
 	}
 
 	// If state is diferent (WAITING, ERROR) from CREATED requeue
