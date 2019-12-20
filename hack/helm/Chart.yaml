@@ -2,4 +2,4 @@ apiVersion: v1
 appVersion: "2.0.15"
 description: Provision database for cloud providers
 name: kube-db
-version: 0.1.1
+version: 0.1.2
